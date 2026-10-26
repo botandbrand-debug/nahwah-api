@@ -7,6 +7,9 @@ export interface UserAttrs {
 }
 
 export interface UserDoc extends UserAttrs {
+  displayName?: string;
+  bio?: string;
+  avatarSeed: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,7 +38,21 @@ const userSchema = new Schema<UserDoc>(
     passwordHash: {
       type: String,
       required: true,
-      select: false, // never returned by default queries
+      select: false,
+    },
+    displayName: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+    },
+    bio: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+    },
+    avatarSeed: {
+      type: String,
+      required: true,
     },
   },
   {
