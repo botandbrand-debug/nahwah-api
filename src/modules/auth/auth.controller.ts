@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as authService from './auth.service';
 import { AppError } from '../../shared/errors/AppError';
+import { User } from './auth.model';
 
 const signupSchema = z.object({
   email: z.string().email('Invalid email address').max(254),
@@ -55,4 +56,32 @@ export async function loginHandler(
   } catch (err) {
     next(err);
   }
+}
+
+export async function meHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new AppError('Not authenticated', 401, 'NOT_AUTHENTICATED');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    res.status(200).json({
+      user: { id: user._id.toString(), email: user.email, username: user.username },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export function logoutHandler(_req: Request, res: Response): void {
+  res.status(200).json({ ok: true });
 }
