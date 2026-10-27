@@ -35,7 +35,7 @@ export async function getPostHandler(req: Request, res: Response, next: NextFunc
   try {
     const id = req.params.id;
     if (typeof id !== 'string' || !id) throw new AppError('Post id required', 400, 'INVALID_ID');
-    const post = await postService.getPostById(id);
+    const post = await postService.getPostById(id, req.user?.id);
     res.status(200).json({ post });
   } catch (err) { next(err); }
 }
@@ -70,7 +70,10 @@ export async function listByIdentityHandler(req: Request, res: Response, next: N
   try {
     const publicName = req.params.publicName;
     if (typeof publicName !== 'string' || !publicName) throw new AppError('Identity name required', 400, 'INVALID_NAME');
-    const result = await postService.listByIdentity(publicName, parsePagination(req));
+    const result = await postService.listByIdentity(publicName, {
+      ...parsePagination(req),
+      viewerUserId: req.user?.id,
+    });
     res.status(200).json(result);
   } catch (err) { next(err); }
 }
@@ -79,7 +82,10 @@ export async function listByUsernameHandler(req: Request, res: Response, next: N
   try {
     const username = req.params.username;
     if (typeof username !== 'string' || !username) throw new AppError('Username required', 400, 'INVALID_NAME');
-    const result = await postService.listMainByIdentityName(username, parsePagination(req));
+    const result = await postService.listMainByIdentityName(username, {
+      ...parsePagination(req),
+      viewerUserId: req.user?.id,
+    });
     res.status(200).json(result);
   } catch (err) { next(err); }
 }
@@ -88,14 +94,20 @@ export async function listMineHandler(req: Request, res: Response, next: NextFun
   try {
     const userId = req.user?.id;
     if (!userId) throw new AppError('Not authenticated', 401, 'NOT_AUTHENTICATED');
-    const result = await postService.listMine(userId, parsePagination(req));
+    const result = await postService.listMine(userId, {
+      ...parsePagination(req),
+      viewerUserId: userId,
+    });
     res.status(200).json(result);
   } catch (err) { next(err); }
 }
 
 export async function feedHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await postService.getFeed(parsePagination(req));
+    const result = await postService.getFeed({
+      ...parsePagination(req),
+      viewerUserId: req.user?.id,
+    });
     res.status(200).json(result);
   } catch (err) { next(err); }
 }

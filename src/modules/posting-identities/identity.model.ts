@@ -29,22 +29,16 @@ const identitySchema = new Schema<IdentityDoc>(
       trim: true,
       maxlength: 300,
     },
-    avatarSeed: {
-      type: String,
-      required: true,
-    },
     ownerUserId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
       select: false,
-      index: true,
     },
     isMain: {
       type: Boolean,
       required: true,
       default: false,
-      index: true,
     },
     deletedAt: {
       type: Date,
@@ -57,17 +51,16 @@ const identitySchema = new Schema<IdentityDoc>(
   }
 );
 
-// One active main identity per user
+// One active identity per (user, isMain) pair.
+// Enforces: at most one main + at most one pseudonym per user.
+// Deleted identities don't count toward uniqueness.
 identitySchema.index(
-  { ownerUserId: 1 },
-  { unique: true, partialFilterExpression: { isMain: true, deletedAt: null } }
+  { ownerUserId: 1, isMain: 1 },
+  { unique: true, partialFilterExpression: { deletedAt: null } }
 );
 
-// One active pseudonymous identity per user
-identitySchema.index(
-  { ownerUserId: 1 },
-  { unique: true, partialFilterExpression: { isMain: false, deletedAt: null } }
-);
+// Lookup index for "does this user have an active identity of type X?"
+identitySchema.index({ ownerUserId: 1, isMain: 1, deletedAt: 1 });
 
 export const PostingIdentity: Model<IdentityDoc> = model<IdentityDoc>(
   'PostingIdentity',

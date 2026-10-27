@@ -5,6 +5,8 @@ export interface PostDoc {
   authorIdentityId: Types.ObjectId;
   authorPublicName: string;
   authorAvatarSeed: string;
+  authorIdentityIsPseudonymous: boolean;
+  nawaCount: number;
   editedAt: Date | null;
   deletedAt: Date | null;
   createdAt: Date;
@@ -36,6 +38,15 @@ const postSchema = new Schema<PostDoc>(
       type: String,
       required: true,
     },
+    authorIdentityIsPseudonymous: {
+      type: Boolean,
+      required: true,
+    },
+    nawaCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     editedAt: {
       type: Date,
       default: null,
@@ -52,9 +63,7 @@ const postSchema = new Schema<PostDoc>(
   }
 );
 
-// Feed query: chronological, exclude deleted
 postSchema.index({ deletedAt: 1, createdAt: -1 });
-// Identity timeline
 postSchema.index({ authorIdentityId: 1, deletedAt: 1, createdAt: -1 });
 
 export const Post: Model<PostDoc> = model<PostDoc>('Post', postSchema);

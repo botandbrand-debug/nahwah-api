@@ -2,20 +2,23 @@ import { Types } from 'mongoose';
 import { Post, PostDocument } from './post.model';
 import { PostingIdentity } from '../posting-identities/identity.model';
 import { getOrCreateMainIdentity } from '../posting-identities/identity.service';
+import { getNawaedPostIds } from '../nawas/nawa.service';
 import { AppError } from '../../shared/errors/AppError';
 import { generateAvatarSvg } from '../../shared/avatar/generate';
+import { Comment } from '../comments/comment.model';
 
 export interface CreatePostInput {
   content: string;
-  identityId?: string; // omit to post as main
+  identityId?: string;
 }
 
 export interface ListOptions {
   limit: number;
-  before?: string; // ISO date cursor
+  before?: string;
+  viewerUserId?: string;
 }
 
-export function toPublicPost(post: PostDocument) {
+export function toPublicPost(post: PostDocument, hasNawa = false) {
   return {
     id: post._id.toString(),
     content: post.content,
@@ -23,6 +26,8 @@ export function toPublicPost(post: PostDocument) {
       name: post.authorPublicName,
       avatar: generateAvatarSvg(post.authorAvatarSeed),
     },
+    nawaCount: post.nawaCount ?? 0,
+    hasNawa,
     createdAt: post.createdAt.toISOString(),
     editedAt: post.editedAt ? post.editedAt.toISOString() : null,
   };
@@ -57,7 +62,9 @@ export async function createPost(
     content: input.content,
     authorIdentityId: identity._id,
     authorPublicName: identity.publicName,
-    authorAvatarSeed: identity.avatarSeed,
+    authorAvatarSeed: identity.avatarSeed || identity.publicName,
+    authorIdentityIsPseudonymous: !identity.isMain,
+    nawaCount: 0,
     editedAt: null,
     deletedAt: null,
   });
@@ -66,7 +73,8 @@ export async function createPost(
 }
 
 export async function getPostById(
-  postId: string
+  postId: string,
+  viewerUserId?: string
 ): Promise<ReturnType<typeof toPublicPost>> {
   if (!Types.ObjectId.isValid(postId)) {
     throw new AppError('Invalid post id', 400, 'INVALID_ID');
@@ -75,7 +83,14 @@ export async function getPostById(
   if (!post) {
     throw new AppError('Post not found', 404, 'POST_NOT_FOUND');
   }
-  return toPublicPost(post);
+
+  let hasNawa = false;
+  if (viewerUserId) {
+    const set = await getNawaedPostIds(viewerUserId, [postId]);
+    hasNawa = set.has(postId);
+  }
+
+  return toPublicPost(post, hasNawa);
 }
 
 export async function updatePost(
@@ -91,7 +106,6 @@ export async function updatePost(
     throw new AppError('Post not found', 404, 'POST_NOT_FOUND');
   }
 
-  // Ownership check via the identity (which has select:false ownerUserId)
   const identity = await PostingIdentity.findById(post.authorIdentityId).select('+ownerUserId');
   if (!identity || identity.ownerUserId.toString() !== userId) {
     throw new AppError('Post not found', 404, 'POST_NOT_FOUND');
@@ -120,6 +134,11 @@ export async function deletePost(userId: string, postId: string): Promise<void> 
 
   post.deletedAt = new Date();
   await post.save();
+
+  await Comment.updateMany(
+    { postId: post._id, deletedAt: null },
+    { $set: { deletedAt: new Date() } }
+  );
 }
 
 async function paginate(
@@ -140,7 +159,18 @@ async function paginate(
   const page = hasMore ? rows.slice(0, limit) : rows;
   const nextCursor = hasMore ? page[page.length - 1]!.createdAt.toISOString() : null;
 
-  return { posts: page.map(toPublicPost), nextCursor };
+  let nawaedSet = new Set<string>();
+  if (options.viewerUserId && page.length > 0) {
+    nawaedSet = await getNawaedPostIds(
+      options.viewerUserId,
+      page.map((p) => p._id.toString())
+    );
+  }
+
+  return {
+    posts: page.map((p) => toPublicPost(p, nawaedSet.has(p._id.toString()))),
+    nextCursor,
+  };
 }
 
 export async function listByIdentity(
