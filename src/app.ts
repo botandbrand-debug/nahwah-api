@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import authRoutes from './modules/auth/auth.routes';
 import profileRoutes from './modules/profiles/profile.routes';
 import identityRoutes from './modules/posting-identities/identity.routes';
+import postRoutes from './modules/posts/post.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -19,6 +20,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1', profileRoutes);
 app.use('/api/v1', identityRoutes);
+app.use('/api/v1', postRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

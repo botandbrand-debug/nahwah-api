@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { User, UserDocument } from './auth.model';
+import { PostingIdentity } from '../posting-identities/identity.model';
 import { AppError } from '../../shared/errors/AppError';
 import { signAccessToken } from '../../shared/utils/jwt';
 import { generateAvatarSvg } from '../../shared/avatar/generate';
@@ -62,6 +63,20 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
     passwordHash,
     avatarSeed: username,
   });
+
+  // Best-effort main identity creation. Failure is logged but does NOT block signup.
+  // The first post will self-heal via getOrCreateMainIdentity().
+  try {
+    await PostingIdentity.create({
+      publicName: username,
+      avatarSeed: username,
+      ownerUserId: user._id,
+      isMain: true,
+      deletedAt: null,
+    });
+  } catch (err) {
+    console.error('[signup] main identity creation failed for user', user._id.toString(), err);
+  }
 
   return toAuthResult(user);
 }
