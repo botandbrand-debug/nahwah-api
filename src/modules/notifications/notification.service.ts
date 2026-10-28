@@ -18,7 +18,7 @@ export function toPublicNotification(notification: NotificationDocument) {
     target: {
       type: notification.targetType,
       id: notification.targetId.toString(),
-      postId: notification.postId.toString(),
+      postId: notification.postId ? notification.postId.toString() : null,
     },
     excerpt: notification.excerpt,
     read: notification.readAt !== null,

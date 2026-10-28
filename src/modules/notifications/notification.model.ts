@@ -1,6 +1,7 @@
 import { Schema, model, Model, HydratedDocument, Types } from 'mongoose';
 
-export type NotificationType = 'comment_created' | 'nawa_added';
+export type NotificationType = 'comment_created' | 'nawa_added' | 'gist_mate_request' | 'gist_mate_accepted';
+
 
 export interface NotificationDoc {
   recipientUserId: Types.ObjectId;
@@ -8,9 +9,9 @@ export interface NotificationDoc {
   actorPublicName: string;
   actorAvatarSeed: string;
   type: NotificationType;
-  targetType: 'post' | 'comment';
+  targetType: 'post' | 'comment' | 'user';
   targetId: Types.ObjectId;
-  postId: Types.ObjectId;
+  postId?: Types.ObjectId;
   excerpt: string;
   readAt: Date | null;
   createdAt: Date;
@@ -36,22 +37,22 @@ const notificationSchema = new Schema<NotificationDoc>(
     type: {
       type: String,
       required: true,
-      enum: ['comment_created', 'nawa_added'],
+      enum: ['comment_created', 'nawa_added', 'gist_mate_request', 'gist_mate_accepted'],
     },
     targetType: {
       type: String,
       required: true,
-      enum: ['post', 'comment'],
+      enum: ['post', 'comment', 'user'],
     },
     targetId: {
       type: Schema.Types.ObjectId,
       required: true,
     },
-    postId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Post',
-      required: true,
-    },
+    //postId: {
+     // type: Schema.Types.ObjectId,
+     // ref: 'Post',
+     // required: true,
+    //},
     excerpt: { type: String, required: true, maxlength: 160 },
     readAt: { type: Date, default: null },
   },

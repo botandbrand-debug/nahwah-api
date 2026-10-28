@@ -8,6 +8,7 @@ import postRoutes from './modules/posts/post.routes';
 import commentRoutes from './modules/comments/comment.routes';
 import notificationRoutes from './modules/notifications/notification.routes';
 import nawaRoutes from './modules/nawas/nawa.routes';
+import gistMateRoutes from './modules/gist-mates/gist-mate.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -25,6 +26,7 @@ app.use('/api/v1', profileRoutes);
 app.use('/api/v1', identityRoutes);
 app.use('/api/v1', postRoutes);
 app.use('/api/v1', nawaRoutes);
+app.use('/api/v1', gistMateRoutes);
 app.use('/api/v1', commentRoutes);
 app.use('/api/v1', notificationRoutes);
 
