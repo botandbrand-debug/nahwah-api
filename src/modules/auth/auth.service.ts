@@ -26,6 +26,7 @@ export interface AuthResult {
     displayName?: string;
     bio?: string;
     avatar: string;
+    isAdmin: boolean;
   };
   token: string;
 }
@@ -39,6 +40,7 @@ function toAuthResult(user: UserDocument): AuthResult {
       displayName: user.displayName,
       bio: user.bio,
       avatar: generateAvatarSvg(user.avatarSeed || user._id.toString()),
+      isAdmin: !!user.isAdmin,
     },
     token: signAccessToken(user._id.toString()),
   };
@@ -57,11 +59,16 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
   }
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+
+  const isAdminBootstrap =
+    !!process.env.ADMIN_EMAIL && email === process.env.ADMIN_EMAIL.toLowerCase();
+
   const user = await User.create({
     email,
     username,
     passwordHash,
     avatarSeed: username,
+    isAdmin: isAdminBootstrap,
   });
 
   // Best-effort main identity creation. Failure is logged but does NOT block signup.
@@ -93,6 +100,10 @@ export async function login(input: LoginInput): Promise<AuthResult> {
 
   if (!user || !passwordMatches) {
     throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
+  }
+
+  if (user.suspendedAt) {
+    throw new AppError('Account suspended', 403, 'ACCOUNT_SUSPENDED');
   }
 
   return toAuthResult(user);

@@ -12,6 +12,7 @@ import blockRoutes from './modules/blocks/block.routes';
 import reportRoutes from './modules/reports/report.routes';
 import discoveryRoutes from './modules/discovery/discovery.routes';
 import gistMateRoutes from './modules/gist-mates/gist-mate.routes';
+import adminRoutes from './modules/admin/admin.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -34,6 +35,8 @@ app.use('/api/v1', commentRoutes);
 app.use('/api/v1', notificationRoutes);
 app.use('/api/v1', blockRoutes);
 app.use('/api/v1', reportRoutes);
+app.use('/api/v1', adminRoutes);
+
 app.use('/api/v1', discoveryRoutes);
 
 app.use(notFoundHandler);

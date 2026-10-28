@@ -21,11 +21,26 @@ export function authenticate(
     );
   }
 
+  let payload;
   try {
-    const payload = verifyAccessToken(token);
-    req.user = { id: payload.sub };
-    next();
+    payload = verifyAccessToken(token);
   } catch (err) {
-    next(err);
+    return next(err);
   }
+
+  req.user = { id: payload.sub };
+
+  // Check suspension asynchronously
+  (async () => {
+    try {
+      const { User } = await import('../modules/auth/auth.model');
+      const user = await User.findById(payload.sub).select('suspendedAt');
+      if (user && user.suspendedAt) {
+        return next(new AppError('Account suspended', 403, 'ACCOUNT_SUSPENDED'));
+      }
+      next();
+    } catch (err) {
+      next(err);
+    }
+  })();
 }

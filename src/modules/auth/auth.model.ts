@@ -10,6 +10,9 @@ export interface UserDoc extends UserAttrs {
   displayName?: string;
   bio?: string;
   avatarSeed: string;
+  isAdmin: boolean;
+  suspendedAt: Date | null;
+  suspendedReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +56,20 @@ const userSchema = new Schema<UserDoc>(
     avatarSeed: {
       type: String,
       required: true,
+    },
+    isAdmin: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    suspendedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    suspendedReason: {
+      type: String,
+      maxlength: 500,
     },
   },
   {
