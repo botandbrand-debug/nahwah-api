@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as postService from './post.service';
+import * as feedService from '../feed/feed.service';
 import { AppError } from '../../shared/errors/AppError';
 
 const createSchema = z.object({
@@ -104,9 +105,21 @@ export async function listMineHandler(req: Request, res: Response, next: NextFun
 
 export async function feedHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await postService.getFeed({
+    const result = await feedService.getFeed({
       ...parsePagination(req),
       viewerUserId: req.user?.id,
+      sort: 'recent',
+    });
+    res.status(200).json(result);
+  } catch (err) { next(err); }
+}
+
+export async function popularFeedHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await feedService.getFeed({
+      ...parsePagination(req),
+      viewerUserId: req.user?.id,
+      sort: 'popular',
     });
     res.status(200).json(result);
   } catch (err) { next(err); }

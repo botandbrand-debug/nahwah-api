@@ -192,10 +192,18 @@ export async function listMainByIdentityName(
     publicName,
     isMain: true,
     deletedAt: null,
-  });
+  }).select('+ownerUserId');
   if (!identity) {
     throw new AppError('User not found', 404, 'USER_NOT_FOUND');
   }
+
+  // Block check
+  if (options.viewerUserId && identity.ownerUserId) {
+    const { isBlockedBetween } = await import('../blocks/block.service');
+    const blocked = await isBlockedBetween(options.viewerUserId, identity.ownerUserId.toString());
+    if (blocked) return { posts: [], nextCursor: null };
+  }
+
   return paginate({ authorIdentityId: identity._id }, options);
 }
 

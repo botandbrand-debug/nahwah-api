@@ -141,6 +141,13 @@ export async function listNotifications(
 ): Promise<{ notifications: ReturnType<typeof toPublicNotification>[]; nextCursor: string | null }> {
   const limit = Math.min(Math.max(options.limit, 1), 50);
   const query: Record<string, unknown> = { recipientUserId: new Types.ObjectId(userId) };
+  // Exclude notifications from blocked users
+  const { getHiddenUserIds } = await import('../blocks/block.service');
+  const hidden = await getHiddenUserIds(userId);
+  if (hidden.size > 0) {
+    query.actorUserId = { $nin: Array.from(hidden).map((id) => new Types.ObjectId(id)) };
+  }
+  
   if (options.before) {
     const beforeDate = new Date(options.before);
     if (!isNaN(beforeDate.getTime())) {

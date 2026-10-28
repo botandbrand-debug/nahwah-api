@@ -55,6 +55,12 @@ export async function sendRequest(
   const target = await User.findById(toUserId);
   if (!target) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
 
+  const { isBlockedBetween } = await import('../blocks/block.service');
+  if (await isBlockedBetween(fromUserId, toUserId)) {
+    throw new AppError('Cannot send request', 404, 'USER_NOT_FOUND');
+    // Deliberately 404, not 403 — don't reveal existence to a blocked user
+  }
+
   // Already mates?
   const { userA, userB } = orderedIds(fromUserId, toUserId);
   const existingMate = await GistMate.findOne({ userA, userB });

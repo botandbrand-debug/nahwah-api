@@ -8,6 +8,9 @@ import postRoutes from './modules/posts/post.routes';
 import commentRoutes from './modules/comments/comment.routes';
 import notificationRoutes from './modules/notifications/notification.routes';
 import nawaRoutes from './modules/nawas/nawa.routes';
+import blockRoutes from './modules/blocks/block.routes';
+import reportRoutes from './modules/reports/report.routes';
+import discoveryRoutes from './modules/discovery/discovery.routes';
 import gistMateRoutes from './modules/gist-mates/gist-mate.routes';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 
@@ -29,6 +32,9 @@ app.use('/api/v1', nawaRoutes);
 app.use('/api/v1', gistMateRoutes);
 app.use('/api/v1', commentRoutes);
 app.use('/api/v1', notificationRoutes);
+app.use('/api/v1', blockRoutes);
+app.use('/api/v1', reportRoutes);
+app.use('/api/v1', discoveryRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
