@@ -1,6 +1,6 @@
 import { User, UserDocument } from '../auth/auth.model';
 import { AppError } from '../../shared/errors/AppError';
-import { toPublicUser } from '../auth/auth.service';
+import { toPublicUserForProfile as toPublicUser } from '../auth/auth.service';
 
 export interface UpdateProfileInput {
   displayName?: string;

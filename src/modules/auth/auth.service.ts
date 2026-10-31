@@ -4,6 +4,7 @@ import { PostingIdentity } from '../posting-identities/identity.model';
 import { AppError } from '../../shared/errors/AppError';
 import { signAccessToken } from '../../shared/utils/jwt';
 import { generateAvatarSvg } from '../../shared/avatar/generate';
+import { issueNewFamily } from './refresh-token.service';
 
 const SALT_ROUNDS = 12;
 
@@ -28,21 +29,30 @@ export interface AuthResult {
     avatar: string;
     isAdmin: boolean;
   };
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+  csrfToken: string;
 }
 
-function toAuthResult(user: UserDocument): AuthResult {
+function toPublicUser(user: UserDocument) {
   return {
-    user: {
-      id: user._id.toString(),
-      email: user.email,
-      username: user.username,
-      displayName: user.displayName,
-      bio: user.bio,
-      avatar: generateAvatarSvg(user.avatarSeed || user._id.toString()),
-      isAdmin: !!user.isAdmin,
-    },
-    token: signAccessToken(user._id.toString()),
+    id: user._id.toString(),
+    email: user.email,
+    username: user.username,
+    displayName: user.displayName,
+    bio: user.bio,
+    avatar: generateAvatarSvg(user.avatarSeed || user._id.toString()),
+    isAdmin: !!user.isAdmin,
+  };
+}
+
+async function buildAuthResult(user: UserDocument): Promise<AuthResult> {
+  const { refreshToken, csrfToken } = await issueNewFamily(user._id.toString());
+  return {
+    user: toPublicUser(user),
+    accessToken: signAccessToken(user._id.toString()),
+    refreshToken,
+    csrfToken,
   };
 }
 
@@ -59,7 +69,6 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
   }
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
-
   const isAdminBootstrap =
     !!process.env.ADMIN_EMAIL && email === process.env.ADMIN_EMAIL.toLowerCase();
 
@@ -71,8 +80,6 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
     isAdmin: isAdminBootstrap,
   });
 
-  // Best-effort main identity creation. Failure is logged but does NOT block signup.
-  // The first post will self-heal via getOrCreateMainIdentity().
   try {
     await PostingIdentity.create({
       publicName: username,
@@ -85,7 +92,7 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
     console.error('[signup] main identity creation failed for user', user._id.toString(), err);
   }
 
-  return toAuthResult(user);
+  return buildAuthResult(user);
 }
 
 export async function login(input: LoginInput): Promise<AuthResult> {
@@ -106,10 +113,10 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     throw new AppError('Account suspended', 403, 'ACCOUNT_SUSPENDED');
   }
 
-  return toAuthResult(user);
+  return buildAuthResult(user);
 }
 
-export function toPublicUser(user: UserDocument) {
+export function toPublicUserForProfile(user: UserDocument) {
   return {
     id: user._id.toString(),
     username: user.username,

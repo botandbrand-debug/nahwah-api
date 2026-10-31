@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as authService from './auth.service';
+import * as refreshService from './refresh-token.service';
 import { AppError } from '../../shared/errors/AppError';
 import { User } from './auth.model';
 
@@ -20,6 +21,20 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+function sendAuthResponse(
+  res: Response,
+  statusCode: number,
+  result: authService.AuthResult
+): void {
+  // Set cookies, strip sensitive tokens from JSON response
+  refreshService.setAuthCookies(res, result.refreshToken, result.csrfToken);
+  res.status(statusCode).json({
+    user: result.user,
+    accessToken: result.accessToken,
+    // refreshToken and csrfToken intentionally omitted from body — cookies carry them
+  });
+}
+
 export async function signupHandler(
   req: Request,
   res: Response,
@@ -28,15 +43,11 @@ export async function signupHandler(
   try {
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) {
-      const first = parsed.error.issues[0];
-      throw new AppError(first?.message ?? 'Invalid input', 400, 'VALIDATION_ERROR');
+      throw new AppError(parsed.error.issues[0]?.message ?? 'Invalid input', 400, 'VALIDATION_ERROR');
     }
-
     const result = await authService.signup(parsed.data);
-    res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
+    sendAuthResponse(res, 201, result);
+  } catch (err) { next(err); }
 }
 
 export async function loginHandler(
@@ -47,15 +58,54 @@ export async function loginHandler(
   try {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-      const first = parsed.error.issues[0];
-      throw new AppError(first?.message ?? 'Invalid input', 400, 'VALIDATION_ERROR');
+      throw new AppError(parsed.error.issues[0]?.message ?? 'Invalid input', 400, 'VALIDATION_ERROR');
+    }
+    const result = await authService.login(parsed.data);
+    sendAuthResponse(res, 200, result);
+  } catch (err) { next(err); }
+}
+
+export async function refreshHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const rawToken = req.cookies?.refreshToken;
+    if (!rawToken) {
+      throw new AppError('No refresh token', 401, 'NO_REFRESH');
     }
 
-    const result = await authService.login(parsed.data);
-    res.status(200).json(result);
-  } catch (err) {
-    next(err);
-  }
+    const csrfHeader = req.headers['x-csrf-token'];
+    const csrfCookie = req.cookies?.csrfToken;
+
+    const result = await refreshService.rotateRefreshToken(
+      rawToken,
+      typeof csrfHeader === 'string' ? csrfHeader : undefined,
+      typeof csrfCookie === 'string' ? csrfCookie : undefined
+    );
+
+    refreshService.setAuthCookies(res, result.refreshToken, result.csrfToken);
+
+    res.status(200).json({
+      accessToken: result.accessToken,
+    });
+  } catch (err) { next(err); }
+}
+
+export async function logoutHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const rawToken = req.cookies?.refreshToken;
+    if (rawToken) {
+      await refreshService.revokeCurrentSession(rawToken);
+    }
+    refreshService.clearAuthCookies(res);
+    res.status(200).json({ ok: true });
+  } catch (err) { next(err); }
 }
 
 export async function meHandler(
@@ -65,23 +115,13 @@ export async function meHandler(
 ): Promise<void> {
   try {
     const userId = req.user?.id;
-    if (!userId) {
-      throw new AppError('Not authenticated', 401, 'NOT_AUTHENTICATED');
-    }
+    if (!userId) throw new AppError('Not authenticated', 401, 'NOT_AUTHENTICATED');
 
     const user = await User.findById(userId);
-    if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
+    if (!user) throw new AppError('User not found', 404, 'USER_NOT_FOUND');
 
     res.status(200).json({
-      user: { id: user._id.toString(), email: user.email, username: user.username },
+      user: authService.toPublicUserForProfile(user),
     });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export function logoutHandler(_req: Request, res: Response): void {
-  res.status(200).json({ ok: true });
+  } catch (err) { next(err); }
 }
