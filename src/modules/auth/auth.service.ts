@@ -80,6 +80,7 @@ export async function signup(input: SignupInput): Promise<AuthResult> {
     isAdmin: isAdminBootstrap,
   });
 
+  // Best-effort main identity creation. Failure is logged but does NOT block signup.
   try {
     await PostingIdentity.create({
       publicName: username,
@@ -102,7 +103,9 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     $or: [{ email: identifier }, { username: identifier }],
   }).select('+passwordHash');
 
-  const hash = user?.passwordHash ?? '$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidin';
+  const hash =
+    user?.passwordHash ??
+    '$2a$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvalidin';
   const passwordMatches = await bcrypt.compare(input.password, hash);
 
   if (!user || !passwordMatches) {
